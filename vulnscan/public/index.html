@@ -649,24 +649,38 @@
 
       <div class="panel">
         <div class="panel-title">// MODULES</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#aaa; font-size:12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
             <input type="checkbox" checked disabled style="accent-color: var(--green);"> SSL/TLS Certificate
           </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#aaa; font-size:12px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
             <input type="checkbox" checked disabled style="accent-color: var(--green);"> HTTP→HTTPS Redirect
           </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#aaa; font-size:12px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
             <input type="checkbox" checked disabled style="accent-color: var(--green);"> Security Headers
           </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#aaa; font-size:12px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
             <input type="checkbox" checked disabled style="accent-color: var(--green);"> Cookie Flags
           </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#aaa; font-size:12px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
             <input type="checkbox" checked disabled style="accent-color: var(--green);"> Sensitive Paths
           </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#aaa; font-size:12px;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
             <input type="checkbox" checked disabled style="accent-color: var(--green);"> AI Analysis (GPT-4o)
+          </label>
+        </div>
+        <!-- Deep PHP Scan — опціональний модуль -->
+        <div style="border-top: 1px solid var(--border); padding-top: 12px;">
+          <label id="phpModuleLabel" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+            <input type="checkbox" id="deepPhpCheck" style="accent-color: var(--cyan); margin-top: 2px; cursor:pointer;">
+            <div>
+              <span style="color: var(--cyan); font-size:13px; font-weight:bold;">Deep PHP Scan</span>
+              <span style="color: var(--gray); font-size: 11px; margin-left: 8px;">[+20-30 сек]</span>
+              <div style="color: #888; font-size: 11px; margin-top: 3px; line-height: 1.6;">
+                PHP info files · Config leaks · CMS detection (WP/Joomla/Drupal/Laravel) ·
+                Backdoor/webshell пошук · Directory listing · PHP error disclosure · PHP version EOL
+              </div>
+            </div>
           </label>
         </div>
       </div>
@@ -674,7 +688,8 @@
       <div class="panel">
         <div class="panel-title">// INFO</div>
         <div style="color: var(--gray); font-size: 12px; line-height: 2;">
-          <div>► Перевірка займає 10-30 секунд залежно від сайту</div>
+          <div>► Базове сканування займає 10-30 секунд залежно від сайту</div>
+          <div>► Deep PHP Scan додає ~30 секунд (31 додаткова перевірка)</div>
           <div>► Таймаут на кожен запит: 5 секунд</div>
           <div>► Результати зберігаються в локальній базі даних</div>
           <div>► AI аналіз використовує модель <span style="color:var(--cyan)">gpt-4o-mini</span></div>
@@ -870,8 +885,10 @@ async function startScan() {
   let targetUrl = url;
   if (!/^https?:\/\//i.test(url)) targetUrl = 'https://' + url;
 
+  const deepPhp = document.getElementById('deepPhpCheck').checked;
+
   log('info', `Починаємо сканування: ${targetUrl}`);
-  log('sys', 'Ініціалізація модулів перевірки...');
+  log('sys', `Модулі: базові${deepPhp ? ' + Deep PHP Scan' : ''}`);
 
   document.getElementById('scanBtn').disabled = true;
   showScanning(targetUrl);
@@ -880,11 +897,14 @@ async function startScan() {
     log('info', 'SSL/TLS перевірка...');
     log('info', 'Аналіз HTTP заголовків...');
     log('info', 'Розвідка чутливих шляхів...');
+    if (deepPhp) {
+      log('info', 'Deep PHP Scan: перевірка 31 PHP-специфічного вектора...');
+    }
 
     const res = await fetch('/api/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: targetUrl }),
+      body: JSON.stringify({ url: targetUrl, deepPhp }),
     });
 
     if (!res.ok) {
@@ -906,6 +926,12 @@ async function startScan() {
     log(failed > 0 ? 'warn' : 'ok', `Перевірок: ${passed} passed / ${failed} failed / ${warned} warnings`);
     if (scan.critical_issues.length > 0) {
       log('err', `Критичних проблем: ${scan.critical_issues.length}`);
+    }
+    if (scan.deepPhp) {
+      const phpChecks = scan.checks.filter(c => c.category === 'PHP');
+      const phpFail = phpChecks.filter(c => c.status === 'fail').length;
+      log(phpFail > 0 ? 'err' : 'ok',
+        `Deep PHP Scan: ${phpChecks.length} перевірок, знайдено ${phpFail} вразливостей`);
     }
 
     renderResults(scan);
@@ -970,12 +996,13 @@ function renderChecks(checks) {
   const container = document.getElementById('checksContainer');
   container.innerHTML = '';
 
-  const categories = ['TRANSPORT', 'HEADERS', 'RECON', 'ACCESS'];
+  const categories = ['TRANSPORT', 'HEADERS', 'RECON', 'ACCESS', 'PHP'];
   const catLabels = {
     TRANSPORT: '// TRANSPORT SECURITY',
-    HEADERS: '// HTTP SECURITY HEADERS',
-    RECON: '// RECONNAISSANCE',
-    ACCESS: '// ACCESS CONTROL',
+    HEADERS:   '// HTTP SECURITY HEADERS',
+    RECON:     '// RECONNAISSANCE',
+    ACCESS:    '// ACCESS CONTROL',
+    PHP:       '// DEEP PHP SCAN',
   };
 
   categories.forEach(cat => {
@@ -1061,12 +1088,14 @@ function exportTxt() {
   lines.push('CHECKS:');
   lines.push('─'.repeat(60));
 
-  const cats = ['TRANSPORT', 'HEADERS', 'RECON', 'ACCESS'];
+  const cats = ['TRANSPORT', 'HEADERS', 'RECON', 'ACCESS', 'PHP'];
   cats.forEach(cat => {
     const catChecks = scan.checks.filter(c => c.category === cat);
     if (catChecks.length === 0) return;
+    const catTitle = { TRANSPORT:'TRANSPORT SECURITY', HEADERS:'HTTP SECURITY HEADERS',
+      RECON:'RECONNAISSANCE', ACCESS:'ACCESS CONTROL', PHP:'DEEP PHP SCAN' }[cat] || cat;
     lines.push('');
-    lines.push('[' + cat + ']');
+    lines.push('[' + catTitle + ']');
     catChecks.forEach(c => {
       const s = { pass: '✓', fail: '✗', warn: '!', info: 'i' }[c.status] || '?';
       lines.push(`  ${s} ${c.name}`);

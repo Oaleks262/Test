@@ -316,6 +316,237 @@ async function checkSensitivePaths(baseUrl) {
   return checks;
 }
 
+// Deep PHP сканування — розширена перевірка PHP-специфічних вразливостей
+async function checkPhpDeep(baseUrl) {
+  const origin = new URL(baseUrl).origin;
+  const checks = [];
+
+  // ── 1. PHP Info файли ──
+  const phpInfoPaths = [
+    { path: '/php.php',      name: 'PHP Info (php.php)',      risk: 'high' },
+    { path: '/phptest.php',  name: 'PHP Info (phptest.php)',  risk: 'high' },
+    { path: '/test.php',     name: 'PHP Info (test.php)',     risk: 'high' },
+    { path: '/i.php',        name: 'PHP Info (i.php)',        risk: 'high' },
+    { path: '/_info.php',    name: 'PHP Info (_info.php)',    risk: 'high' },
+  ];
+
+  // ── 2. Витік конфігурацій та вихідного коду ──
+  const configPaths = [
+    { path: '/composer.json',       name: 'Composer Manifest (composer.json)',       risk: 'critical' },
+    { path: '/composer.lock',       name: 'Composer Lock (composer.lock)',           risk: 'critical' },
+    { path: '/wp-config.php',       name: 'WordPress Config (wp-config.php)',        risk: 'critical' },
+    { path: '/wp-config.php.bak',   name: 'WP Config Backup (wp-config.php.bak)',   risk: 'critical' },
+    { path: '/config.php',          name: 'Config File (config.php)',                risk: 'high'     },
+    { path: '/database.php',        name: 'DB Config (database.php)',                risk: 'high'     },
+    { path: '/db.php',              name: 'DB Config (db.php)',                      risk: 'high'     },
+    { path: '/configuration.php',   name: 'Joomla Config (configuration.php)',       risk: 'critical' },
+    { path: '/config/database.php', name: 'Laravel DB Config (config/database.php)', risk: 'critical' },
+    { path: '/.htaccess',           name: 'Apache Config (.htaccess)',               risk: 'high'     },
+  ];
+
+  // ── 3. CMS та фреймворк детектування ──
+  const cmsPaths = [
+    { path: '/wp-login.php',              name: 'WordPress Login (/wp-login.php)',           risk: 'medium' },
+    { path: '/xmlrpc.php',                name: 'WordPress XML-RPC (/xmlrpc.php)',            risk: 'medium' },
+    { path: '/wp-json/wp/v2/users',       name: 'WordPress REST Users API',                  risk: 'high'   },
+    { path: '/joomla.xml',                name: 'Joomla Manifest (joomla.xml)',               risk: 'medium' },
+    { path: '/administrator/manifests/files/joomla.xml', name: 'Joomla Version (manifests)', risk: 'medium' },
+    { path: '/sites/default/settings.php', name: 'Drupal Config (sites/default/settings.php)', risk: 'critical' },
+    { path: '/artisan',                   name: 'Laravel Artisan (/artisan)',                 risk: 'info'   },
+    { path: '/index.php/admin',           name: 'CodeIgniter Admin',                         risk: 'medium' },
+  ];
+
+  // ── 4. PHP бекдори / вебшели ──
+  const backdoorPaths = [
+    { path: '/shell.php',     name: 'PHP Shell (shell.php)',       risk: 'critical' },
+    { path: '/c99.php',       name: 'c99 Shell (c99.php)',         risk: 'critical' },
+    { path: '/r57.php',       name: 'r57 Shell (r57.php)',         risk: 'critical' },
+    { path: '/cmd.php',       name: 'CMD Shell (cmd.php)',         risk: 'critical' },
+    { path: '/webshell.php',  name: 'Webshell (webshell.php)',     risk: 'critical' },
+    { path: '/b374k.php',     name: 'b374k Shell (b374k.php)',     risk: 'critical' },
+    { path: '/wso.php',       name: 'WSO Shell (wso.php)',         risk: 'critical' },
+    { path: '/alfa.php',      name: 'Alfa Shell (alfa.php)',       risk: 'critical' },
+  ];
+
+  // ── 5. Директорії завантажень (перевірка Directory Listing) ──
+  const uploadPaths = [
+    { path: '/uploads/',  name: 'Upload Directory (/uploads/)',  risk: 'medium' },
+    { path: '/upload/',   name: 'Upload Directory (/upload/)',   risk: 'medium' },
+    { path: '/files/',    name: 'Files Directory (/files/)',     risk: 'medium' },
+    { path: '/tmp/',      name: 'Temp Directory (/tmp/)',        risk: 'high'   },
+    { path: '/temp/',     name: 'Temp Directory (/temp/)',       risk: 'high'   },
+  ];
+
+  // Обробник перевірки одного шляху
+  async function probePath(p, name, risk, groupId) {
+    let status = 'pass';
+    let detail = `${p} недоступний`;
+    let recommendation = null;
+
+    try {
+      const res = await fetchWithTimeout(`${origin}${p}`, { method: 'GET', redirect: 'manual' });
+
+      if (res.status === 200) {
+        const body = await res.text().catch(() => '');
+
+        // Для директорій — шукаємо ознаки directory listing
+        if (p.endsWith('/')) {
+          const hasListing = /Index of\s+\//i.test(body) || /<title>Index of/i.test(body);
+          if (hasListing) {
+            status = risk === 'high' ? 'fail' : 'warn';
+            detail = `Directory Listing увімкнено: ${p} — файли видимі публічно`;
+            recommendation = 'Вимкніть Directory Listing (Options -Indexes в .htaccess або nginx autoindex off)';
+          } else {
+            status = 'pass';
+            detail = `${p} доступний, але Directory Listing вимкнено`;
+          }
+          return;
+        }
+
+        // Для composer.json — перевіряємо чи справжній JSON
+        if (p.includes('composer') && body.includes('"require"')) {
+          status = 'fail';
+          detail = `КРИТИЧНО: ${p} розкриває залежності проекту та може містити чутливу інформацію`;
+          recommendation = `Заблокуйте доступ до ${p} через веб-сервер`;
+          return;
+        }
+
+        // Для wp-config — частковий body (не завантажуємо повністю)
+        if (p.includes('wp-config') && (body.includes('DB_') || body.includes('table_prefix'))) {
+          status = 'fail';
+          detail = `КРИТИЧНО: ${p} містить облікові дані бази даних!`;
+          recommendation = `Негайно заблокуйте ${p} та перенесіть файл вище кореня сайту`;
+          return;
+        }
+
+        // Загальне правило по ризику
+        if (risk === 'critical') {
+          status = 'fail';
+          detail = `КРИТИЧНО: ${p} публічно доступний (HTTP 200)`;
+          recommendation = `Негайно заблокуйте доступ до ${p}`;
+        } else if (risk === 'high') {
+          status = 'fail';
+          detail = `${p} публічно доступний (HTTP 200)`;
+          recommendation = `Заблокуйте або видаліть ${p}`;
+        } else if (risk === 'medium') {
+          status = 'warn';
+          detail = `${p} доступний — переконайтеся в захисті автентифікацією`;
+          recommendation = `Обмежте доступ до ${p}`;
+        } else {
+          status = 'info';
+          detail = `${p} доступний (HTTP 200)`;
+        }
+
+      } else if (res.status === 403) {
+        status = risk === 'critical' ? 'warn' : 'pass';
+        detail = `${p} заблокований (403 Forbidden)${risk === 'critical' ? ' — файл існує, але недоступний' : ''}`;
+        if (risk === 'critical') recommendation = 'Переконайтеся що файл не просто захищений, а видалений або перенесений';
+      } else {
+        status = 'pass';
+        detail = `${p} недоступний (HTTP ${res.status})`;
+      }
+    } catch {
+      status = 'pass';
+      detail = `${p} не відповідає або недоступний`;
+    }
+
+    checks.push({
+      id: `php_${groupId}_${p.replace(/[^a-z0-9]/gi, '_')}`,
+      category: 'PHP',
+      name,
+      status,
+      detail,
+      recommendation,
+    });
+  }
+
+  // Запускаємо всі групи паралельно
+  const allPathGroups = [
+    ...phpInfoPaths.map(({ path: p, name, risk }) => probePath(p, name, risk, 'info')),
+    ...configPaths.map(({ path: p, name, risk }) => probePath(p, name, risk, 'config')),
+    ...cmsPaths.map(({ path: p, name, risk }) => probePath(p, name, risk, 'cms')),
+    ...backdoorPaths.map(({ path: p, name, risk }) => probePath(p, name, risk, 'backdoor')),
+    ...uploadPaths.map(({ path: p, name, risk }) => probePath(p, name, risk, 'upload')),
+  ];
+
+  await Promise.all(allPathGroups);
+
+  // ── 6. Перевірка PHP error disclosure у body головної сторінки ──
+  try {
+    const res = await fetchWithTimeout(baseUrl, { method: 'GET' });
+    const body = await res.text();
+
+    // Патерни PHP помилок у відповіді
+    const errorPatterns = [
+      { re: /\bParse error\b/i,               label: 'Parse error' },
+      { re: /\bFatal error\b/i,               label: 'Fatal error' },
+      { re: /\bWarning:\s+\w+\(/i,            label: 'PHP Warning' },
+      { re: /\bNotice:\s+\w+/i,               label: 'PHP Notice' },
+      { re: /Stack trace:/i,                  label: 'Stack trace' },
+      { re: /on line \d+/i,                   label: 'Error line reference' },
+      { re: /in \/[a-z0-9_\/]+\.php on/i,    label: 'File path exposure' },
+    ];
+
+    const found = errorPatterns.filter(({ re }) => re.test(body)).map(({ label }) => label);
+
+    if (found.length > 0) {
+      checks.push({
+        id: 'php_error_disclosure',
+        category: 'PHP',
+        name: 'PHP Error Disclosure',
+        status: 'fail',
+        detail: `Сторінка розкриває PHP помилки в body: ${found.join(', ')}`,
+        recommendation: 'Встановіть display_errors=Off та log_errors=On у php.ini для production оточення',
+      });
+    } else {
+      checks.push({
+        id: 'php_error_disclosure',
+        category: 'PHP',
+        name: 'PHP Error Disclosure',
+        status: 'pass',
+        detail: 'PHP помилки не виявлено у відповіді сторінки',
+        recommendation: null,
+      });
+    }
+
+    // ── 7. PHP версія з заголовків (детальний аналіз) ──
+    const xpb = res.headers.get('x-powered-by') || '';
+    const phpVerMatch = xpb.match(/PHP\/([\d.]+)/i);
+    if (phpVerMatch) {
+      const ver = phpVerMatch[1];
+      const major = parseInt(ver.split('.')[0]);
+      const minor = parseInt(ver.split('.')[1] || '0');
+      const isEol = major < 8 || (major === 8 && minor < 1);
+      checks.push({
+        id: 'php_version_leak',
+        category: 'PHP',
+        name: 'PHP Version Disclosure',
+        status: isEol ? 'fail' : 'warn',
+        detail: isEol
+          ? `PHP ${ver} — версія з підтримкою EOL (End of Life)! Більше не отримує патчів безпеки`
+          : `PHP ${ver} — версія розкрита у заголовках (рекомендується приховати)`,
+        recommendation: isEol
+          ? `Оновіть PHP до 8.2+ та приховайте версію через expose_php=Off у php.ini`
+          : `Встановіть expose_php=Off у php.ini для приховання версії`,
+      });
+    } else if (xpb.toLowerCase().includes('php')) {
+      checks.push({
+        id: 'php_version_leak',
+        category: 'PHP',
+        name: 'PHP Version Disclosure',
+        status: 'warn',
+        detail: `PHP присутній у заголовках, але версія прихована: ${xpb}`,
+        recommendation: 'Повністю приховайте заголовок X-Powered-By',
+      });
+    }
+
+  } catch {
+    // Ігноруємо помилку аналізу body
+  }
+
+  return checks;
+}
+
 // AI аналіз результатів через OpenAI
 async function analyzeWithAI(url, checks) {
   const failed = checks.filter(c => c.status === 'fail');
@@ -380,7 +611,7 @@ ${passed.map(c => `• [${c.name}]`).join('\n')}
 
 // POST /api/scan — головний маршрут сканування
 router.post('/', async (req, res) => {
-  const { url } = req.body;
+  const { url, deepPhp = false } = req.body;
 
   // Валідація URL
   if (!url || typeof url !== 'string') {
@@ -400,16 +631,25 @@ router.post('/', async (req, res) => {
   const targetUrl = parsedUrl.href;
 
   try {
-    // Запускаємо всі перевірки паралельно де можливо
-    const [sslCheck, redirectCheck, sensitiveChecks] = await Promise.all([
+    // Базові перевірки — завжди паралельно
+    const parallelTasks = [
       checkSSL(targetUrl),
       checkHttpRedirect(targetUrl),
       checkSensitivePaths(targetUrl),
-    ]);
+    ];
+    if (deepPhp) parallelTasks.push(checkPhpDeep(targetUrl));
+
+    const [sslCheck, redirectCheck, sensitiveChecks, phpChecks] = await Promise.all(parallelTasks);
 
     const headerChecks = await checkHeaders(targetUrl);
 
-    const allChecks = [sslCheck, redirectCheck, ...headerChecks, ...sensitiveChecks];
+    const allChecks = [
+      sslCheck,
+      redirectCheck,
+      ...headerChecks,
+      ...sensitiveChecks,
+      ...(phpChecks || []),
+    ];
 
     // AI аналіз
     const aiResult = await analyzeWithAI(targetUrl, allChecks);
@@ -425,6 +665,7 @@ router.post('/', async (req, res) => {
       critical_issues: aiResult.critical_issues || [],
       recommendations: aiResult.recommendations || [],
       checks: allChecks,
+      deepPhp: Boolean(deepPhp),
     };
 
     // Зберігаємо у файл
