@@ -3,623 +3,234 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VULNSCAN — Security Audit Tool</title>
+  <title>VULNSCAN — Security Audit Tool v2.0</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --green: #00ff41;
-      --green-dim: #00cc33;
-      --green-dark: #003300;
+      --green: #00ff41; --green-dim: #00cc33; --green-dark: #003300;
       --green-glow: rgba(0,255,65,0.15);
-      --red: #ff3333;
-      --red-dim: #cc0000;
-      --yellow: #ffcc00;
-      --yellow-dim: #aa8800;
-      --cyan: #00ffff;
-      --cyan-dim: #00aaaa;
-      --gray: #888888;
-      --gray-dark: #333333;
-      --bg: #0a0a0a;
-      --bg-panel: #0f0f0f;
-      --bg-card: #111111;
-      --border: #1a2a1a;
-      --border-bright: #00ff4133;
+      --red: #ff3333; --red-dim: #cc0000;
+      --yellow: #ffcc00; --yellow-dim: #aa8800;
+      --cyan: #00ffff; --cyan-dim: #00aaaa;
+      --purple: #cc88ff; --purple-dim: #9944cc;
+      --gray: #888888; --gray-dark: #333333;
+      --bg: #0a0a0a; --bg-panel: #0f0f0f; --bg-card: #111111;
+      --border: #1a2a1a; --border-bright: #00ff4133;
       --font: 'Courier New', 'Lucida Console', monospace;
     }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--green); font-family: var(--font); font-size: 14px; line-height: 1.6; min-height: 100vh; overflow-x: hidden; }
+    body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.05) 2px,rgba(0,0,0,0.05) 4px); pointer-events: none; z-index: 9999; }
 
-    body {
-      background: var(--bg);
-      color: var(--green);
-      font-family: var(--font);
-      font-size: 14px;
-      line-height: 1.6;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* Scanline ефект */
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.05) 2px,
-        rgba(0,0,0,0.05) 4px
-      );
-      pointer-events: none;
-      z-index: 9999;
-    }
-
-    /* ── HEADER ── */
-    header {
-      border-bottom: 1px solid var(--border-bright);
-      padding: 12px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--bg-panel);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .logo {
-      font-size: 22px;
-      font-weight: bold;
-      letter-spacing: 4px;
-      color: var(--green);
-      text-shadow: 0 0 10px var(--green);
-    }
-
+    /* HEADER */
+    header { border-bottom: 1px solid var(--border-bright); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; background: var(--bg-panel); position: sticky; top: 0; z-index: 100; }
+    .logo { font-size: 22px; font-weight: bold; letter-spacing: 4px; color: var(--green); text-shadow: 0 0 10px var(--green); }
     .logo span { color: var(--red); text-shadow: 0 0 10px var(--red); }
+    .logo sup { font-size: 11px; color: var(--cyan); letter-spacing: 1px; }
+    .status-bar { font-size: 11px; color: var(--gray); display: flex; gap: 20px; align-items: center; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-    .status-bar {
-      font-size: 11px;
-      color: var(--gray);
-      display: flex;
-      gap: 20px;
-    }
-
-    .status-bar .dot {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 6px var(--green);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* ── NAV ── */
-    nav {
-      display: flex;
-      gap: 0;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-panel);
-    }
-
-    .nav-btn {
-      padding: 10px 24px;
-      background: none;
-      border: none;
-      border-right: 1px solid var(--border);
-      color: var(--gray);
-      font-family: var(--font);
-      font-size: 13px;
-      letter-spacing: 2px;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-transform: uppercase;
-    }
-
+    /* NAV */
+    nav { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
+    .nav-btn { padding: 10px 20px; background: none; border: none; border-right: 1px solid var(--border); color: var(--gray); font-family: var(--font); font-size: 12px; letter-spacing: 2px; cursor: pointer; transition: all 0.2s; text-transform: uppercase; }
     .nav-btn:hover { color: var(--green); background: var(--green-glow); }
-    .nav-btn.active {
-      color: var(--green);
-      background: var(--green-dark);
-      border-bottom: 2px solid var(--green);
-    }
+    .nav-btn.active { color: var(--green); background: var(--green-dark); border-bottom: 2px solid var(--green); }
 
-    /* ── MAIN LAYOUT ── */
-    main {
-      display: flex;
-      flex-direction: column;
-      min-height: calc(100vh - 110px);
-      padding: 0 0 180px;
-    }
-
+    /* MAIN */
+    main { padding: 0 0 175px; min-height: calc(100vh - 110px); }
     .page { display: none; padding: 24px; }
     .page.active { display: block; }
 
-    /* ── PANEL / CARD ── */
-    .panel {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      padding: 20px;
-      margin-bottom: 16px;
-    }
+    /* PANEL */
+    .panel { background: var(--bg-panel); border: 1px solid var(--border); padding: 20px; margin-bottom: 16px; }
+    .panel-title { font-size: 11px; letter-spacing: 3px; color: var(--green-dim); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; }
+    .panel-title.red { color: var(--red); } .panel-title.yellow { color: var(--yellow); }
+    .panel-title.cyan { color: var(--cyan); } .panel-title.purple { color: var(--purple); }
 
-    .panel-title {
-      font-size: 11px;
-      letter-spacing: 3px;
-      color: var(--green-dim);
-      margin-bottom: 16px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--border);
-      text-transform: uppercase;
-    }
-
-    /* ── SCAN PAGE ── */
-    .scan-form {
-      max-width: 700px;
-      margin: 0 auto;
-    }
-
-    .ascii-banner {
-      text-align: center;
-      color: var(--green-dim);
-      font-size: 11px;
-      margin-bottom: 24px;
-      line-height: 1.3;
-      text-shadow: 0 0 8px var(--green-dim);
-    }
-
-    .input-group {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .url-input {
-      flex: 1;
-      background: var(--bg-card);
-      border: 1px solid var(--border-bright);
-      color: var(--green);
-      font-family: var(--font);
-      font-size: 15px;
-      padding: 12px 16px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
+    /* SCAN PAGE */
+    .scan-form { max-width: 700px; margin: 0 auto; }
+    .ascii-banner { text-align: center; color: var(--green-dim); font-size: 11px; margin-bottom: 24px; line-height: 1.3; text-shadow: 0 0 8px var(--green-dim); }
+    .input-group { display: flex; gap: 8px; margin-bottom: 16px; }
+    .url-input { flex: 1; background: var(--bg-card); border: 1px solid var(--border-bright); color: var(--green); font-family: var(--font); font-size: 15px; padding: 12px 16px; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
     .url-input::placeholder { color: var(--gray-dark); }
+    .url-input:focus { border-color: var(--green); box-shadow: 0 0 12px var(--green-glow); }
+    .btn { background: var(--green-dark); border: 1px solid var(--green-dim); color: var(--green); font-family: var(--font); font-size: 13px; letter-spacing: 2px; padding: 12px 24px; cursor: pointer; text-transform: uppercase; transition: all 0.2s; }
+    .btn:hover { background: var(--green); color: #000; box-shadow: 0 0 15px var(--green); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-danger { border-color: var(--red-dim); color: var(--red); background: transparent; }
+    .btn-danger:hover { background: var(--red); color: #000; box-shadow: 0 0 15px var(--red); }
+    .btn-cyan { border-color: var(--cyan-dim); color: var(--cyan); background: transparent; }
+    .btn-cyan:hover { background: var(--cyan); color: #000; box-shadow: 0 0 15px var(--cyan); }
+    .btn-purple { border-color: var(--purple-dim); color: var(--purple); background: transparent; }
+    .btn-purple:hover { background: var(--purple); color: #000; }
+    .btn-sm { padding: 5px 12px; font-size: 11px; }
+    .modules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .mod-item { display: flex; align-items: center; gap: 8px; cursor: default; color: #aaa; font-size: 12px; }
 
-    .url-input:focus {
-      border-color: var(--green);
-      box-shadow: 0 0 12px var(--green-glow);
-    }
-
-    .btn {
-      background: var(--green-dark);
-      border: 1px solid var(--green-dim);
-      color: var(--green);
-      font-family: var(--font);
-      font-size: 13px;
-      letter-spacing: 2px;
-      padding: 12px 24px;
-      cursor: pointer;
-      text-transform: uppercase;
-      transition: all 0.2s;
-    }
-
-    .btn:hover {
-      background: var(--green);
-      color: #000;
-      box-shadow: 0 0 15px var(--green);
-    }
-
-    .btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .btn-danger {
-      border-color: var(--red-dim);
-      color: var(--red);
-      background: transparent;
-    }
-
-    .btn-danger:hover {
-      background: var(--red);
-      color: #000;
-      box-shadow: 0 0 15px var(--red);
-    }
-
-    .btn-sm {
-      padding: 5px 12px;
-      font-size: 11px;
-    }
-
-    /* ── RESULTS PAGE ── */
-    .score-section {
-      display: flex;
-      align-items: center;
-      gap: 32px;
-      margin-bottom: 24px;
-    }
-
-    .score-circle {
-      width: 110px;
-      height: 110px;
-      border-radius: 50%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      border: 3px solid var(--green);
-      box-shadow: 0 0 20px var(--green-glow), inset 0 0 20px var(--green-glow);
-      flex-shrink: 0;
-      position: relative;
-    }
-
-    .score-circle.grade-a { border-color: var(--green); box-shadow: 0 0 25px rgba(0,255,65,0.3); }
-    .score-circle.grade-b { border-color: #88ff00; box-shadow: 0 0 25px rgba(136,255,0,0.3); }
-    .score-circle.grade-c { border-color: var(--yellow); box-shadow: 0 0 25px rgba(255,204,0,0.3); }
-    .score-circle.grade-d { border-color: #ff8800; box-shadow: 0 0 25px rgba(255,136,0,0.3); }
-    .score-circle.grade-f { border-color: var(--red); box-shadow: 0 0 25px rgba(255,51,51,0.3); }
-
-    .score-num {
-      font-size: 32px;
-      font-weight: bold;
-      line-height: 1;
-    }
-
-    .score-grade {
-      font-size: 13px;
-      letter-spacing: 2px;
-      margin-top: 4px;
-    }
-
+    /* RESULTS */
+    .score-section { display: flex; align-items: center; gap: 32px; margin-bottom: 24px; }
+    .score-circle { width: 110px; height: 110px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 3px solid var(--green); box-shadow: 0 0 20px var(--green-glow), inset 0 0 20px var(--green-glow); flex-shrink: 0; }
+    .score-circle.grade-a { border-color: var(--green); } .score-circle.grade-b { border-color: #88ff00; }
+    .score-circle.grade-c { border-color: var(--yellow); } .score-circle.grade-d { border-color: #ff8800; }
+    .score-circle.grade-f { border-color: var(--red); }
+    .score-num { font-size: 32px; font-weight: bold; line-height: 1; }
+    .score-grade { font-size: 13px; letter-spacing: 2px; margin-top: 4px; }
     .score-meta { flex: 1; }
     .score-url { color: var(--cyan); font-size: 15px; word-break: break-all; margin-bottom: 6px; }
     .score-date { color: var(--gray); font-size: 12px; margin-bottom: 12px; }
     .score-summary { color: #ccc; line-height: 1.7; }
-
-    /* Критичні проблеми */
-    .critical-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .critical-item {
-      padding: 8px 12px;
-      background: rgba(255,51,51,0.08);
-      border-left: 3px solid var(--red);
-      color: #ffaaaa;
-      font-size: 13px;
-    }
-
+    .actions-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .critical-list, .rec-list { display: flex; flex-direction: column; gap: 6px; }
+    .critical-item { padding: 8px 12px; background: rgba(255,51,51,0.08); border-left: 3px solid var(--red); color: #ffaaaa; font-size: 13px; }
     .critical-item::before { content: '⚠ '; color: var(--red); }
-
-    /* Рекомендації */
-    .rec-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .rec-item {
-      padding: 8px 12px;
-      background: rgba(0,255,65,0.04);
-      border-left: 3px solid var(--green-dim);
-      color: #aaffaa;
-      font-size: 13px;
-    }
-
+    .rec-item { padding: 8px 12px; background: rgba(0,255,65,0.04); border-left: 3px solid var(--green-dim); color: #aaffaa; font-size: 13px; }
     .rec-item::before { content: '→ '; color: var(--green); }
 
-    /* ── CHECKS ── */
-    .checks-grid {
-      display: grid;
-      gap: 8px;
-    }
-
-    .check-item {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      cursor: pointer;
-      transition: border-color 0.15s;
-    }
-
+    /* CHECKS */
+    .checks-grid { display: grid; gap: 8px; }
+    .check-item { background: var(--bg-card); border: 1px solid var(--border); cursor: pointer; transition: border-color 0.15s; }
     .check-item:hover { border-color: var(--green-dim); }
-
-    .check-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-    }
-
-    .check-status {
-      font-size: 11px;
-      font-weight: bold;
-      letter-spacing: 1px;
-      padding: 2px 8px;
-      border: 1px solid;
-      min-width: 48px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-
-    .status-pass  { color: var(--green); border-color: var(--green); }
-    .status-fail  { color: var(--red);   border-color: var(--red);   }
-    .status-warn  { color: var(--yellow);border-color: var(--yellow);}
-    .status-info  { color: var(--cyan);  border-color: var(--cyan);  }
-
+    .check-header { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+    .check-status { font-size: 11px; font-weight: bold; letter-spacing: 1px; padding: 2px 8px; border: 1px solid; min-width: 48px; text-align: center; flex-shrink: 0; }
+    .status-pass { color: var(--green); border-color: var(--green); }
+    .status-fail { color: var(--red); border-color: var(--red); }
+    .status-warn { color: var(--yellow); border-color: var(--yellow); }
+    .status-info { color: var(--cyan); border-color: var(--cyan); }
     .check-name { flex: 1; font-size: 13px; }
-    .check-category {
-      font-size: 10px;
-      letter-spacing: 2px;
-      color: var(--gray);
-      padding: 2px 6px;
-      border: 1px solid var(--gray-dark);
-    }
-
-    .check-body {
-      display: none;
-      padding: 12px 14px;
-      border-top: 1px solid var(--border);
-      background: var(--bg);
-    }
-
+    .check-category { font-size: 10px; letter-spacing: 2px; color: var(--gray); padding: 2px 6px; border: 1px solid var(--gray-dark); }
+    .check-body { display: none; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--bg); }
     .check-body.open { display: block; }
-
-    .check-detail { color: #aaa; font-size: 12px; margin-bottom: 8px; }
-    .check-rec {
-      color: var(--green-dim);
-      font-size: 12px;
-      padding: 6px 10px;
-      background: var(--green-dark);
-      border-left: 2px solid var(--green);
-    }
-
+    .check-detail { color: #aaa; font-size: 12px; margin-bottom: 8px; white-space: pre-wrap; }
+    .check-rec { color: var(--green-dim); font-size: 12px; padding: 6px 10px; background: var(--green-dark); border-left: 2px solid var(--green); }
     .check-rec::before { content: '→ Рекомендація: '; color: var(--green); }
-
-    /* Групи категорій */
     .category-group { margin-bottom: 20px; }
-    .category-label {
-      font-size: 11px;
-      letter-spacing: 4px;
-      color: var(--cyan-dim);
-      margin-bottom: 8px;
-      padding: 4px 0;
-      border-bottom: 1px solid var(--border);
-    }
+    .category-label { font-size: 11px; letter-spacing: 4px; color: var(--cyan-dim); margin-bottom: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); }
 
-    /* ── HISTORY PAGE ── */
-    .history-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
+    /* STATS ROW */
+    .stats-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .stat-pill { padding: 4px 12px; border: 1px solid; font-size: 11px; letter-spacing: 1px; }
+    .stat-pass { color: var(--green); border-color: var(--green); } .stat-fail { color: var(--red); border-color: var(--red); }
+    .stat-warn { color: var(--yellow); border-color: var(--yellow); } .stat-info { color: var(--cyan); border-color: var(--cyan); }
 
-    .history-table th {
-      text-align: left;
-      padding: 8px 12px;
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--gray);
-      border-bottom: 1px solid var(--border);
-      text-transform: uppercase;
-    }
-
-    .history-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-      vertical-align: middle;
-    }
-
+    /* HISTORY */
+    .history-table { width: 100%; border-collapse: collapse; }
+    .history-table th { text-align: left; padding: 8px 12px; font-size: 11px; letter-spacing: 2px; color: var(--gray); border-bottom: 1px solid var(--border); text-transform: uppercase; }
+    .history-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
     .history-table tr:hover td { background: var(--green-glow); }
-
-    .history-url {
-      color: var(--cyan);
-      cursor: pointer;
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      max-width: 300px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      display: block;
-    }
-
+    .history-table tr.selected td { background: rgba(0,255,65,0.06); }
+    .history-url { color: var(--cyan); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
     .history-url:hover { color: var(--green); }
-
-    .grade-badge {
-      display: inline-block;
-      width: 28px; height: 28px;
-      line-height: 28px;
-      text-align: center;
-      border: 1px solid;
-      font-weight: bold;
-      font-size: 13px;
-    }
-
-    .grade-A { color: var(--green); border-color: var(--green); }
-    .grade-B { color: #88ff00; border-color: #88ff00; }
-    .grade-C { color: var(--yellow); border-color: var(--yellow); }
-    .grade-D { color: #ff8800; border-color: #ff8800; }
+    .grade-badge { display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; border: 1px solid; font-weight: bold; font-size: 13px; }
+    .grade-A { color: var(--green); border-color: var(--green); } .grade-B { color: #88ff00; border-color: #88ff00; }
+    .grade-C { color: var(--yellow); border-color: var(--yellow); } .grade-D { color: #ff8800; border-color: #ff8800; }
     .grade-F { color: var(--red); border-color: var(--red); }
+    .score-high { color: var(--green); } .score-mid { color: var(--yellow); } .score-low { color: var(--red); }
+    .cmp-btn { display: none; }
 
-    /* ── TERMINAL LOG ── */
-    #terminal {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: 160px;
-      background: #050505;
-      border-top: 1px solid var(--border-bright);
-      font-size: 12px;
-      display: flex;
-      flex-direction: column;
-      z-index: 50;
-    }
+    /* TREND CHART */
+    .trend-wrap { position: relative; height: 200px; margin-top: 16px; }
+    #trendChartWrap { display: none; }
 
-    .terminal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 4px 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-panel);
-    }
+    /* COMPARE */
+    #comparePanel { display: none; }
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .compare-col { background: var(--bg-card); border: 1px solid var(--border); padding: 16px; }
+    .compare-col h3 { font-size: 12px; color: var(--cyan); margin-bottom: 12px; letter-spacing: 2px; }
+    .diff-row { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .diff-better { color: var(--green); } .diff-worse { color: var(--red); } .diff-same { color: var(--gray); }
 
-    .terminal-title {
-      color: var(--gray);
-      font-size: 11px;
-      letter-spacing: 2px;
-    }
+    /* SCHEDULED */
+    .schedule-table { width: 100%; border-collapse: collapse; }
+    .schedule-table th { text-align: left; padding: 8px 12px; font-size: 11px; letter-spacing: 2px; color: var(--gray); border-bottom: 1px solid var(--border); text-transform: uppercase; }
+    .schedule-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+    .schedule-table tr:hover td { background: var(--green-glow); }
+    .enabled-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .enabled-on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .enabled-off { background: var(--gray); }
+    .add-schedule-form { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: end; margin-bottom: 16px; }
+    select.sel-input { background: var(--bg-card); border: 1px solid var(--border-bright); color: var(--green); font-family: var(--font); font-size: 13px; padding: 12px 16px; outline: none; }
+    select.sel-input option { background: var(--bg-card); }
 
-    .terminal-controls { display: flex; gap: 6px; }
-    .t-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .terminal-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .terminal-body::-webkit-scrollbar { width: 4px; }
-    .terminal-body::-webkit-scrollbar-track { background: transparent; }
-    .terminal-body::-webkit-scrollbar-thumb { background: var(--green-dark); }
-
-    .log-line {
-      line-height: 1.5;
-      animation: fadeIn 0.2s ease;
-    }
-
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; } }
-
-    .log-time { color: var(--gray); margin-right: 8px; }
-    .log-ok   { color: var(--green); }
-    .log-err  { color: var(--red); }
-    .log-warn { color: var(--yellow); }
-    .log-info { color: var(--cyan); }
-    .log-sys  { color: var(--gray); }
-
-    /* ── PROGRESS / SCANNING ── */
-    .scanning-overlay {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.85);
-      z-index: 200;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 20px;
-    }
-
+    /* SCANNING OVERLAY */
+    .scanning-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; flex-direction: column; gap: 20px; }
     .scanning-overlay.active { display: flex; }
-
-    .scanning-text {
-      font-size: 20px;
-      letter-spacing: 4px;
-      color: var(--green);
-      text-shadow: 0 0 15px var(--green);
-      animation: blink 1s step-end infinite;
-    }
-
+    .scanning-text { font-size: 20px; letter-spacing: 4px; color: var(--green); text-shadow: 0 0 15px var(--green); animation: blink 1s step-end infinite; }
     @keyframes blink { 50% { opacity: 0; } }
+    .scanning-url { color: var(--cyan); font-size: 13px; }
+    .scanning-queue { color: var(--yellow); font-size: 12px; }
+    .progress-bar-wrap { width: 400px; height: 4px; background: var(--border); overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--green); box-shadow: 0 0 8px var(--green); width: 0%; transition: width 0.4s ease; }
+    .scanning-steps { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--gray); text-align: center; }
+    .scanning-steps .active-step { color: var(--green); }
 
-    .progress-bar-wrap {
-      width: 400px;
-      height: 4px;
-      background: var(--border);
-      overflow: hidden;
-    }
+    /* TERMINAL */
+    #terminal { position: fixed; bottom: 0; left: 0; right: 0; height: 160px; background: #050505; border-top: 1px solid var(--border-bright); font-size: 12px; display: flex; flex-direction: column; z-index: 50; }
+    .terminal-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
+    .terminal-title { color: var(--gray); font-size: 11px; letter-spacing: 2px; }
+    .terminal-controls { display: flex; gap: 6px; }
+    .t-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .terminal-body { flex: 1; overflow-y: auto; padding: 8px 16px; display: flex; flex-direction: column; gap: 2px; }
+    .terminal-body::-webkit-scrollbar { width: 4px; }
+    .terminal-body::-webkit-scrollbar-thumb { background: var(--green-dark); }
+    .log-line { line-height: 1.5; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; } }
+    .log-time { color: var(--gray); margin-right: 8px; }
+    .log-ok { color: var(--green); } .log-err { color: var(--red); } .log-warn { color: var(--yellow); }
+    .log-info { color: var(--cyan); } .log-sys { color: var(--gray); }
 
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-      width: 0%;
-      transition: width 0.4s ease;
-    }
-
-    .scanning-url {
-      color: var(--cyan);
-      font-size: 13px;
-    }
-
-    /* ── EMPTY STATE ── */
-    .empty {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--gray);
-    }
-
+    /* EMPTY */
+    .empty { text-align: center; padding: 60px 20px; color: var(--gray); }
     .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
 
-    /* ── EXPORT BTN ── */
-    .actions-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    /* ── SCORE COLORS ── */
-    .score-high { color: var(--green); }
-    .score-mid  { color: var(--yellow); }
-    .score-low  { color: var(--red); }
-
-    /* ── RESPONSIVE ── */
+    /* RESPONSIVE */
     @media (max-width: 600px) {
       .score-section { flex-direction: column; }
       .progress-bar-wrap { width: 90vw; }
-      .history-table th:nth-child(3),
-      .history-table td:nth-child(3) { display: none; }
+      .compare-grid { grid-template-columns: 1fr; }
+      .add-schedule-form { grid-template-columns: 1fr; }
+      .history-table th:nth-child(3), .history-table td:nth-child(3) { display: none; }
     }
   </style>
 </head>
 <body>
 
-<!-- Оверлей сканування -->
 <div class="scanning-overlay" id="scanningOverlay">
   <div class="scanning-text">[ SCANNING... ]</div>
   <div class="scanning-url" id="scanningUrlText"></div>
-  <div class="progress-bar-wrap">
-    <div class="progress-bar-fill" id="progressBar"></div>
+  <div class="scanning-queue" id="scanningQueueText"></div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div>
+  <div class="scanning-steps" id="scanningSteps">
+    <div class="active-step">► DNS Security Check</div>
+    <div>► TLS Certificate Analysis</div>
+    <div>► HTTP Security Headers</div>
+    <div>► CORS & WAF Detection</div>
+    <div>► Sensitive Paths & Access Control</div>
+    <div>► JavaScript Library Audit</div>
+    <div>► AI Security Analysis</div>
   </div>
 </div>
 
-<!-- Хедер -->
 <header>
-  <div class="logo">VULN<span>SCAN</span></div>
+  <div class="logo">VULN<span>SCAN</span><sup> v2.0</sup></div>
   <div class="status-bar">
     <span><span class="dot"></span> ONLINE</span>
     <span id="headerDate"></span>
   </div>
 </header>
 
-<!-- Навігація -->
 <nav>
   <button class="nav-btn active" onclick="showPage('scan')">[1] SCAN</button>
   <button class="nav-btn" onclick="showPage('results')" id="navResults">[2] RESULTS</button>
   <button class="nav-btn" onclick="showPage('history')">[3] HISTORY</button>
+  <button class="nav-btn" onclick="showPage('schedule')">[4] SCHEDULE</button>
 </nav>
 
 <main>
 
-  <!-- ── СТОРІНКА SCAN ── -->
+  <!-- SCAN PAGE -->
   <div class="page active" id="page-scan">
     <div class="scan-form">
-
       <pre class="ascii-banner">
  ██╗   ██╗██╗   ██╗██╗     ███╗   ██╗███████╗ ██████╗ █████╗ ███╗   ██╗
  ██║   ██║██║   ██║██║     ████╗  ██║██╔════╝██╔════╝██╔══██╗████╗  ██║
@@ -627,59 +238,40 @@
  ╚██╗ ██╔╝██║   ██║██║     ██║╚██╗██║╚════██║██║     ██╔══██║██║╚██╗██║
   ╚████╔╝ ╚██████╔╝███████╗██║ ╚████║███████║╚██████╗██║  ██║██║ ╚████║
    ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝
-                        Security Audit Tool v1.0</pre>
+                    Security Audit Tool v2.0 — Enhanced Edition</pre>
 
       <div class="panel">
         <div class="panel-title">// TARGET URL</div>
         <div class="input-group">
-          <input
-            type="text"
-            class="url-input"
-            id="urlInput"
-            placeholder="https://example.com"
-            autocomplete="off"
-            spellcheck="false"
-          >
+          <input type="text" class="url-input" id="urlInput" placeholder="https://example.com" autocomplete="off" spellcheck="false">
           <button class="btn" id="scanBtn" onclick="startScan()">[ SCAN ]</button>
         </div>
-        <div style="color: var(--gray); font-size: 11px;">
-          Введіть повний URL з протоколом (https://). Натисніть Enter або кнопку SCAN.
-        </div>
+        <div style="color: var(--gray); font-size: 11px;">Введіть повний URL з протоколом (https://). Натисніть Enter або SCAN.</div>
       </div>
 
       <div class="panel">
-        <div class="panel-title">// MODULES</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
-            <input type="checkbox" checked disabled style="accent-color: var(--green);"> SSL/TLS Certificate
-          </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
-            <input type="checkbox" checked disabled style="accent-color: var(--green);"> HTTP→HTTPS Redirect
-          </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
-            <input type="checkbox" checked disabled style="accent-color: var(--green);"> Security Headers
-          </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
-            <input type="checkbox" checked disabled style="accent-color: var(--green);"> Cookie Flags
-          </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
-            <input type="checkbox" checked disabled style="accent-color: var(--green);"> Sensitive Paths
-          </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:default; color:#aaa; font-size:12px;">
-            <input type="checkbox" checked disabled style="accent-color: var(--green);"> AI Analysis (GPT-4o)
-          </label>
+        <div class="panel-title">// MODULES (v2.0 — 8 нових модулів)</div>
+        <div class="modules-grid">
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--green)"> SSL/TLS + Certificate Expiry</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--green)"> HTTP→HTTPS Redirect</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--green)"> Security Headers (classic)</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--cyan)"> Modern Headers (COOP/CORP/PP)</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--cyan)"> DNS Security (SPF/DMARC/CAA)</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--cyan)"> CORS Misconfiguration</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--cyan)"> WAF/CDN Detection</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--cyan)"> Subdomain Enumeration</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--cyan)"> Open Redirect Testing</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--cyan)"> JavaScript Library Audit</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--green)"> Sensitive Paths + Access Control</div>
+          <div class="mod-item"><input type="checkbox" checked disabled style="accent-color:var(--green)"> AI Analysis (GPT-4o-mini)</div>
         </div>
-        <!-- Deep PHP Scan — опціональний модуль -->
         <div style="border-top: 1px solid var(--border); padding-top: 12px;">
-          <label id="phpModuleLabel" style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
+          <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
             <input type="checkbox" id="deepPhpCheck" style="accent-color: var(--cyan); margin-top: 2px; cursor:pointer;">
             <div>
               <span style="color: var(--cyan); font-size:13px; font-weight:bold;">Deep PHP Scan</span>
-              <span style="color: var(--gray); font-size: 11px; margin-left: 8px;">[+20-30 сек]</span>
-              <div style="color: #888; font-size: 11px; margin-top: 3px; line-height: 1.6;">
-                PHP info files · Config leaks · CMS detection (WP/Joomla/Drupal/Laravel) ·
-                Backdoor/webshell пошук · Directory listing · PHP error disclosure · PHP version EOL
-              </div>
+              <span style="color: var(--gray); font-size: 11px; margin-left: 8px;">[+30 сек | 31 перевірка]</span>
+              <div style="color: #888; font-size: 11px; margin-top: 3px; line-height: 1.6;">PHP info · Config leaks · CMS (WP/Joomla/Drupal/Laravel) · Backdoors · Directory listing · Error disclosure</div>
             </div>
           </label>
         </div>
@@ -688,27 +280,24 @@
       <div class="panel">
         <div class="panel-title">// INFO</div>
         <div style="color: var(--gray); font-size: 12px; line-height: 2;">
-          <div>► Базове сканування займає 10-30 секунд залежно від сайту</div>
-          <div>► Deep PHP Scan додає ~30 секунд (31 додаткова перевірка)</div>
-          <div>► Таймаут на кожен запит: 5 секунд</div>
-          <div>► Результати зберігаються в локальній базі даних</div>
-          <div>► AI аналіз використовує модель <span style="color:var(--cyan)">gpt-4o-mini</span></div>
+          <div>► Базове сканування: 15-40 секунд (50+ перевірок)</div>
+          <div>► Deep PHP Scan додає ~30 секунд</div>
+          <div>► Rate limiting: 10 сканувань / 5 хвилин</div>
+          <div>► Queue: максимум 3 паралельних сканування</div>
+          <div>► SQLite база даних (до 500 сканувань)</div>
         </div>
       </div>
-
     </div>
   </div>
 
-  <!-- ── СТОРІНКА RESULTS ── -->
+  <!-- RESULTS PAGE -->
   <div class="page" id="page-results">
     <div id="resultsEmpty" class="empty">
       <div class="empty-icon">◈</div>
       <div>Результати відсутні. Виконайте сканування.</div>
     </div>
+    <div id="resultsContent" style="display:none; max-width: 960px;">
 
-    <div id="resultsContent" style="display:none; max-width: 900px;">
-
-      <!-- Score -->
       <div class="panel">
         <div class="panel-title">// SECURITY SCORE</div>
         <div class="score-section">
@@ -722,39 +311,53 @@
             <div class="score-summary" id="scoreSummary"></div>
           </div>
         </div>
+        <div class="stats-row" id="statsRow"></div>
       </div>
 
-      <!-- Кнопки дій -->
       <div class="actions-row">
-        <button class="btn btn-sm" onclick="exportTxt()">[ EXPORT TXT ]</button>
-        <button class="btn btn-sm" onclick="showPage('scan')">[ NEW SCAN ]</button>
+        <button class="btn btn-sm" onclick="exportTxt()">[ TXT ЗВІТ ]</button>
+        <button class="btn btn-sm btn-cyan" onclick="openReport()">[ HTML ЗВІТ / PDF ]</button>
+        <button class="btn btn-sm btn-purple" onclick="showTrend()">[ TREND ГРАФІК ]</button>
+        <button class="btn btn-sm" onclick="showPage('scan')">[ НОВЕ СКАНУВАННЯ ]</button>
       </div>
 
-      <!-- Критичні проблеми -->
+      <div id="trendChartWrap" class="panel">
+        <div class="panel-title cyan">// SCORE TREND — HISTORY FOR THIS URL</div>
+        <div class="trend-wrap"><canvas id="trendChart"></canvas></div>
+      </div>
+
       <div class="panel" id="criticalPanel" style="display:none;">
-        <div class="panel-title" style="color: var(--red);">// CRITICAL ISSUES</div>
+        <div class="panel-title red">// CRITICAL ISSUES</div>
         <div class="critical-list" id="criticalList"></div>
       </div>
 
-      <!-- Рекомендації -->
       <div class="panel" id="recsPanel" style="display:none;">
-        <div class="panel-title" style="color: var(--yellow);">// RECOMMENDATIONS</div>
+        <div class="panel-title yellow">// RECOMMENDATIONS</div>
         <div class="rec-list" id="recsList"></div>
       </div>
 
-      <!-- Чекпоінти по категоріях -->
       <div class="panel">
-        <div class="panel-title">// CHECKS</div>
+        <div class="panel-title">// DETAILED CHECKS</div>
         <div id="checksContainer"></div>
       </div>
-
     </div>
   </div>
 
-  <!-- ── СТОРІНКА HISTORY ── -->
+  <!-- HISTORY PAGE -->
   <div class="page" id="page-history">
     <div class="panel">
-      <div class="panel-title">// SCAN HISTORY</div>
+      <div class="panel-title">// SCAN HISTORY
+        <span style="color:var(--gray);font-weight:normal;margin-left:16px;">[ COMPARE: виберіть 2 сканування ]</span>
+      </div>
+      <div id="comparePanel" class="panel" style="display:none;margin-bottom:16px;">
+        <div class="panel-title cyan">// COMPARE SCANS</div>
+        <div id="compareContent"></div>
+        <button class="btn btn-danger btn-sm" style="margin-top:12px;" onclick="clearCompare()">[ ЗАКРИТИ ]</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+        <button class="btn btn-sm btn-cyan" id="compareBtn" onclick="runCompare()" style="display:none;">[ ПОРІВНЯТИ ВИБРАНІ ]</button>
+        <button class="btn btn-sm" onclick="clearCompare()">[ СКИНУТИ ВИБІР ]</button>
+      </div>
       <div id="historyEmpty" class="empty" style="display:none;">
         <div class="empty-icon">◈</div>
         <div>Історія порожня. Виконайте перше сканування.</div>
@@ -763,12 +366,7 @@
         <table class="history-table" id="historyTable">
           <thead>
             <tr>
-              <th>#</th>
-              <th>URL</th>
-              <th>ДАТА</th>
-              <th>SCORE</th>
-              <th>GRADE</th>
-              <th>ДІЇ</th>
+              <th>⊡</th><th>#</th><th>URL</th><th>ДАТА</th><th>SCORE</th><th>GRADE</th><th>ДІЇ</th>
             </tr>
           </thead>
           <tbody id="historyBody"></tbody>
@@ -777,9 +375,51 @@
     </div>
   </div>
 
+  <!-- SCHEDULE PAGE -->
+  <div class="page" id="page-schedule">
+    <div class="panel">
+      <div class="panel-title purple">// SCHEDULED SCANS — АВТОМАТИЧНИЙ МОНІТОРИНГ</div>
+
+      <div class="add-schedule-form">
+        <input type="text" class="url-input" id="schedUrl" placeholder="https://example.com" style="font-size:13px;">
+        <select class="sel-input" id="schedFreq">
+          <option value="daily">Щодня (09:00)</option>
+          <option value="weekly">Щотижня (Пн 09:00)</option>
+          <option value="monthly">Щомісяця (1-го 09:00)</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:8px;color:#aaa;font-size:12px;white-space:nowrap;">
+          <input type="checkbox" id="schedDeepPhp" style="accent-color:var(--cyan);"> Deep PHP
+        </label>
+        <button class="btn btn-purple" onclick="addSchedule()">[ ДОДАТИ ]</button>
+      </div>
+
+      <div id="scheduleEmpty" class="empty" style="display:none; padding: 30px;">
+        <div class="empty-icon">⏰</div>
+        <div>Розклади відсутні. Додайте сайт для автоматичного моніторингу.</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="schedule-table" id="scheduleTable" style="display:none;">
+          <thead>
+            <tr><th>STATUS</th><th>URL</th><th>РОЗКЛАД</th><th>ОСТАННІЙ СКАН</th><th>НАСТУПНИЙ</th><th>ДІЇ</th></tr>
+          </thead>
+          <tbody id="scheduleBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 0;">
+      <div class="panel-title">// ЯК ЦЕ ПРАЦЮЄ</div>
+      <div style="color: var(--gray); font-size: 12px; line-height: 2.2;">
+        <div>► Сервер перевіряє розклади кожні 15 хвилин</div>
+        <div>► Виконує повне сканування у призначений час</div>
+        <div>► Результати зберігаються в History та SQLite БД</div>
+        <div>► Trend графік покаже динаміку змін Score з часом</div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
-<!-- Термінал -->
 <div id="terminal">
   <div class="terminal-header">
     <span class="terminal-title">▶ TERMINAL LOG</span>
@@ -793,53 +433,52 @@
 </div>
 
 <script>
-// ── СТАН ДОДАТКУ ──
 const state = {
   currentScan: null,
   history: [],
+  compareSelected: [],
+  trendChart: null,
 };
 
-// ── ІНІЦІАЛІЗАЦІЯ ──
+// ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
   updateHeaderDate();
   setInterval(updateHeaderDate, 1000);
-  document.getElementById('urlInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') startScan();
-  });
-  log('sys', 'VULNSCAN Security Audit Tool v1.0 ініціалізовано');
+  document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') startScan(); });
+  document.getElementById('schedUrl').addEventListener('keydown', e => { if (e.key === 'Enter') addSchedule(); });
+  log('sys', 'VULNSCAN v2.0 Security Audit Tool ініціалізовано');
+  log('sys', '8 нових модулів: DNS, TLS, CORS, WAF, Subdomains, Open Redirect, JS Audit, Modern Headers');
   log('sys', 'Готовий до сканування. Введіть URL та натисніть SCAN.');
 });
 
 function updateHeaderDate() {
   const now = new Date();
   document.getElementById('headerDate').textContent =
-    now.toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', year:'numeric',
-      hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    now.toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
 }
 
-// ── НАВІГАЦІЯ ──
+// ── NAVIGATION ──
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
-  const btns = document.querySelectorAll('.nav-btn');
-  const map = { scan: 0, results: 1, history: 2 };
-  btns[map[name]].classList.add('active');
+  const map = { scan: 0, results: 1, history: 2, schedule: 3 };
+  document.querySelectorAll('.nav-btn')[map[name]]?.classList.add('active');
   if (name === 'history') loadHistory();
+  if (name === 'schedule') loadSchedules();
 }
 
-// ── ТЕРМІНАЛ ──
+// ── TERMINAL ──
 function log(type, msg) {
   const body = document.getElementById('terminalBody');
   const line = document.createElement('div');
   line.className = 'log-line';
   const now = new Date().toLocaleTimeString('uk-UA');
-  const typeClass = { ok:'log-ok', err:'log-err', warn:'log-warn', info:'log-info', sys:'log-sys' }[type] || 'log-sys';
-  const prefix = { ok:'[  OK  ]', err:'[ FAIL ]', warn:'[ WARN ]', info:'[ INFO ]', sys:'[  SYS ]' }[type] || '[  SYS ]';
-  line.innerHTML = `<span class="log-time">${now}</span><span class="${typeClass}">${prefix} ${escHtml(msg)}</span>`;
+  const cls = { ok:'log-ok', err:'log-err', warn:'log-warn', info:'log-info', sys:'log-sys' }[type] || 'log-sys';
+  const pfx = { ok:'[  OK  ]', err:'[ FAIL ]', warn:'[ WARN ]', info:'[ INFO ]', sys:'[  SYS ]' }[type] || '[  SYS ]';
+  line.innerHTML = `<span class="log-time">${now}</span><span class="${cls}">${pfx} ${escHtml(msg)}</span>`;
   body.appendChild(line);
   body.scrollTop = body.scrollHeight;
-  // Максимум 100 рядків
   while (body.children.length > 100) body.removeChild(body.firstChild);
 }
 
@@ -847,22 +486,38 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── ПРОГРЕС ──
+// ── SCANNING PROGRESS ──
 let progressInterval = null;
+let stepInterval = null;
 
 function showScanning(url) {
   document.getElementById('scanningOverlay').classList.add('active');
   document.getElementById('scanningUrlText').textContent = url;
+  document.getElementById('scanningQueueText').textContent = '';
   let pct = 0;
   document.getElementById('progressBar').style.width = '0%';
   progressInterval = setInterval(() => {
-    pct = Math.min(pct + Math.random() * 8, 88);
+    pct = Math.min(pct + Math.random() * 5, 90);
     document.getElementById('progressBar').style.width = pct + '%';
-  }, 400);
+  }, 500);
+
+  // Animate steps
+  const steps = document.getElementById('scanningSteps').children;
+  let si = 0;
+  Array.from(steps).forEach(s => s.classList.remove('active-step'));
+  steps[0]?.classList.add('active-step');
+  stepInterval = setInterval(() => {
+    if (si < steps.length - 1) {
+      steps[si].classList.remove('active-step');
+      si++;
+      steps[si].classList.add('active-step');
+    }
+  }, 3000);
 }
 
 function hideScanning() {
   clearInterval(progressInterval);
+  clearInterval(stepInterval);
   document.getElementById('progressBar').style.width = '100%';
   setTimeout(() => {
     document.getElementById('scanningOverlay').classList.remove('active');
@@ -870,42 +525,32 @@ function hideScanning() {
   }, 500);
 }
 
-// ── СКАНУВАННЯ ──
+// ── SCAN ──
 async function startScan() {
   const urlInput = document.getElementById('urlInput');
-  const url = urlInput.value.trim();
-
-  if (!url) {
-    log('err', 'URL не вказано');
-    urlInput.focus();
-    return;
-  }
-
-  // Додаємо https:// якщо протокол відсутній
-  let targetUrl = url;
-  if (!/^https?:\/\//i.test(url)) targetUrl = 'https://' + url;
+  let url = urlInput.value.trim();
+  if (!url) { log('err', 'URL не вказано'); urlInput.focus(); return; }
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
 
   const deepPhp = document.getElementById('deepPhpCheck').checked;
-
-  log('info', `Починаємо сканування: ${targetUrl}`);
-  log('sys', `Модулі: базові${deepPhp ? ' + Deep PHP Scan' : ''}`);
+  log('info', `Починаємо сканування: ${url}`);
+  log('sys', `Модулі: DNS, TLS, Headers, CORS, WAF, Subdomains, OpenRedirect, JSAudit, Access${deepPhp ? ', DeepPHP' : ''}`);
 
   document.getElementById('scanBtn').disabled = true;
-  showScanning(targetUrl);
+  showScanning(url);
 
   try {
-    log('info', 'SSL/TLS перевірка...');
-    log('info', 'Аналіз HTTP заголовків...');
-    log('info', 'Розвідка чутливих шляхів...');
-    if (deepPhp) {
-      log('info', 'Deep PHP Scan: перевірка 31 PHP-специфічного вектора...');
-    }
-
     const res = await fetch('/api/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: targetUrl, deepPhp }),
+      body: JSON.stringify({ url, deepPhp }),
     });
+
+    const qPos = res.headers.get('X-Queue-Position');
+    if (qPos) {
+      document.getElementById('scanningQueueText').textContent = `[ Позиція у черзі: ${qPos} ]`;
+      log('info', `Скан поставлено в чергу. Позиція: ${qPos}`);
+    }
 
     if (!res.ok) {
       const err = await res.json();
@@ -914,29 +559,26 @@ async function startScan() {
 
     const scan = await res.json();
     state.currentScan = scan;
-
     hideScanning();
 
-    // Логуємо результати
     const passed = scan.checks.filter(c => c.status === 'pass').length;
     const failed = scan.checks.filter(c => c.status === 'fail').length;
     const warned = scan.checks.filter(c => c.status === 'warn').length;
 
     log('ok', `Сканування завершено! Score: ${scan.score}/100, Grade: ${scan.grade}`);
     log(failed > 0 ? 'warn' : 'ok', `Перевірок: ${passed} passed / ${failed} failed / ${warned} warnings`);
-    if (scan.critical_issues.length > 0) {
-      log('err', `Критичних проблем: ${scan.critical_issues.length}`);
-    }
-    if (scan.deepPhp) {
-      const phpChecks = scan.checks.filter(c => c.category === 'PHP');
-      const phpFail = phpChecks.filter(c => c.status === 'fail').length;
-      log(phpFail > 0 ? 'err' : 'ok',
-        `Deep PHP Scan: ${phpChecks.length} перевірок, знайдено ${phpFail} вразливостей`);
-    }
+    if (scan.critical_issues.length) log('err', `Критичних проблем: ${scan.critical_issues.length}`);
+
+    const dnsChecks = scan.checks.filter(c => c.category === 'DNS');
+    const dnsFail = dnsChecks.filter(c => c.status === 'fail').length;
+    if (dnsChecks.length) log(dnsFail > 0 ? 'warn' : 'ok', `DNS Security: ${dnsChecks.length - dnsFail}/${dnsChecks.length} пройдено`);
+
+    const corsChecks = scan.checks.filter(c => c.category === 'CORS');
+    const corsFail = corsChecks.filter(c => c.status === 'fail').length;
+    if (corsFail) log('err', `CORS: виявлено вразливості!`);
 
     renderResults(scan);
     showPage('results');
-
   } catch (err) {
     hideScanning();
     log('err', `Помилка сканування: ${err.message}`);
@@ -946,49 +588,47 @@ async function startScan() {
   }
 }
 
-// ── РЕНДЕР РЕЗУЛЬТАТІВ ──
+// ── RENDER RESULTS ──
 function renderResults(scan) {
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'block';
 
-  // Score circle
   const circle = document.getElementById('scoreCircle');
   circle.className = 'score-circle grade-' + scan.grade.toLowerCase();
   document.getElementById('scoreNum').textContent = scan.score;
-  const gradeEl = document.getElementById('scoreGrade');
-  gradeEl.textContent = 'GRADE ' + scan.grade;
-  gradeEl.className = 'score-grade grade-' + scan.grade;
+  const ge = document.getElementById('scoreGrade');
+  ge.textContent = 'GRADE ' + scan.grade;
+  ge.className = 'score-grade grade-' + scan.grade;
 
   document.getElementById('scoreUrl').textContent = scan.url;
-  document.getElementById('scoreDate').textContent =
-    new Date(scan.date).toLocaleString('uk-UA');
+  document.getElementById('scoreDate').textContent = new Date(scan.date).toLocaleString('uk-UA');
   document.getElementById('scoreSummary').textContent = scan.summary;
 
-  // Критичні проблеми
-  const critPanel = document.getElementById('criticalPanel');
-  const critList = document.getElementById('criticalList');
-  if (scan.critical_issues && scan.critical_issues.length > 0) {
-    critPanel.style.display = 'block';
-    critList.innerHTML = scan.critical_issues
-      .map(i => `<div class="critical-item">${escHtml(i)}</div>`)
-      .join('');
-  } else {
-    critPanel.style.display = 'none';
-  }
+  const passed = scan.checks.filter(c => c.status === 'pass').length;
+  const failed = scan.checks.filter(c => c.status === 'fail').length;
+  const warned = scan.checks.filter(c => c.status === 'warn').length;
+  const info = scan.checks.filter(c => c.status === 'info').length;
+  document.getElementById('statsRow').innerHTML = `
+    <span class="stat-pill stat-pass">✓ ${passed} PASS</span>
+    <span class="stat-pill stat-fail">✗ ${failed} FAIL</span>
+    <span class="stat-pill stat-warn">! ${warned} WARN</span>
+    <span class="stat-pill stat-info">i ${info} INFO</span>
+    <span class="stat-pill" style="color:var(--gray);border-color:var(--gray-dark)">Σ ${scan.checks.length} checks</span>
+  `;
 
-  // Рекомендації
-  const recsPanel = document.getElementById('recsPanel');
-  const recsList = document.getElementById('recsList');
-  if (scan.recommendations && scan.recommendations.length > 0) {
-    recsPanel.style.display = 'block';
-    recsList.innerHTML = scan.recommendations
-      .map(r => `<div class="rec-item">${escHtml(r)}</div>`)
-      .join('');
-  } else {
-    recsPanel.style.display = 'none';
-  }
+  const cp = document.getElementById('criticalPanel');
+  if (scan.critical_issues?.length) {
+    cp.style.display = 'block';
+    document.getElementById('criticalList').innerHTML = scan.critical_issues.map(i => `<div class="critical-item">${escHtml(i)}</div>`).join('');
+  } else cp.style.display = 'none';
 
-  // Чеки по категоріях
+  const rp = document.getElementById('recsPanel');
+  if (scan.recommendations?.length) {
+    rp.style.display = 'block';
+    document.getElementById('recsList').innerHTML = scan.recommendations.map(r => `<div class="rec-item">${escHtml(r)}</div>`).join('');
+  } else rp.style.display = 'none';
+
+  document.getElementById('trendChartWrap').style.display = 'none';
   renderChecks(scan.checks);
 }
 
@@ -996,16 +636,20 @@ function renderChecks(checks) {
   const container = document.getElementById('checksContainer');
   container.innerHTML = '';
 
-  const categories = ['TRANSPORT', 'HEADERS', 'RECON', 'ACCESS', 'PHP'];
+  const categories = ['TRANSPORT', 'HEADERS', 'CORS', 'DNS', 'RECON', 'ACCESS', 'CLIENT', 'PHP'];
   const catLabels = {
-    TRANSPORT: '// TRANSPORT SECURITY',
+    TRANSPORT: '// TRANSPORT SECURITY (SSL/TLS)',
     HEADERS:   '// HTTP SECURITY HEADERS',
-    RECON:     '// RECONNAISSANCE',
+    CORS:      '// CORS POLICY',
+    DNS:       '// DNS SECURITY (SPF/DMARC/CAA)',
+    RECON:     '// RECONNAISSANCE (WAF/Subdomains)',
     ACCESS:    '// ACCESS CONTROL',
+    CLIENT:    '// CLIENT-SIDE SECURITY (JavaScript)',
     PHP:       '// DEEP PHP SCAN',
   };
 
-  categories.forEach(cat => {
+  const usedCats = new Set(checks.map(c => c.category));
+  [...categories, ...[...usedCats].filter(c => !categories.includes(c))].forEach(cat => {
     const catChecks = checks.filter(c => c.category === cat);
     if (catChecks.length === 0) return;
 
@@ -1015,6 +659,12 @@ function renderChecks(checks) {
     const label = document.createElement('div');
     label.className = 'category-label';
     label.textContent = catLabels[cat] || '// ' + cat;
+
+    const failCount = catChecks.filter(c => c.status === 'fail').length;
+    const warnCount = catChecks.filter(c => c.status === 'warn').length;
+    if (failCount) label.innerHTML += ` <span style="color:var(--red);font-size:10px;">[${failCount} FAIL]</span>`;
+    if (warnCount) label.innerHTML += ` <span style="color:var(--yellow);font-size:10px;">[${warnCount} WARN]</span>`;
+
     group.appendChild(label);
 
     const grid = document.createElement('div');
@@ -1023,21 +673,18 @@ function renderChecks(checks) {
     catChecks.forEach(check => {
       const item = document.createElement('div');
       item.className = 'check-item';
-
-      const statusText = { pass: 'PASS', fail: 'FAIL', warn: 'WARN', info: 'INFO' }[check.status] || check.status;
-
+      const statusText = { pass:'PASS', fail:'FAIL', warn:'WARN', info:'INFO' }[check.status] || check.status;
       item.innerHTML = `
         <div class="check-header" onclick="toggleCheck(this)">
           <span class="check-status status-${check.status}">${statusText}</span>
           <span class="check-name">${escHtml(check.name)}</span>
           <span class="check-category">${escHtml(check.category)}</span>
-          <span style="color: var(--gray); margin-left: 8px; font-size: 12px;">▼</span>
+          <span style="color:var(--gray);margin-left:8px;font-size:12px;">▼</span>
         </div>
         <div class="check-body">
           <div class="check-detail">${escHtml(check.detail || '')}</div>
           ${check.recommendation ? `<div class="check-rec">${escHtml(check.recommendation)}</div>` : ''}
-        </div>
-      `;
+        </div>`;
       grid.appendChild(item);
     });
 
@@ -1048,74 +695,110 @@ function renderChecks(checks) {
 
 function toggleCheck(header) {
   const body = header.nextElementSibling;
-  const arrow = header.querySelector('span:last-child');
   body.classList.toggle('open');
-  arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
+  header.querySelector('span:last-child').textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+// ── TREND CHART ──
+async function showTrend() {
+  const scan = state.currentScan;
+  if (!scan) return;
+
+  const wrap = document.getElementById('trendChartWrap');
+  if (wrap.style.display === 'block') { wrap.style.display = 'none'; return; }
+
+  try {
+    const res = await fetch(`/api/scan/trend?url=${encodeURIComponent(scan.url)}`);
+    const data = await res.json();
+
+    if (!data || data.length < 2) {
+      log('info', 'Для trend графіку потрібно мінімум 2 сканування одного URL');
+      return;
+    }
+
+    wrap.style.display = 'block';
+    const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (state.trendChart) state.trendChart.destroy();
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    state.trendChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: sorted.map(s => new Date(s.date).toLocaleDateString('uk-UA')),
+        datasets: [{
+          label: 'Security Score',
+          data: sorted.map(s => s.score),
+          borderColor: '#00ff41',
+          backgroundColor: 'rgba(0,255,65,0.1)',
+          pointBackgroundColor: sorted.map(s => s.score >= 75 ? '#00ff41' : s.score >= 50 ? '#ffcc00' : '#ff3333'),
+          pointRadius: 5,
+          tension: 0.3,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#888', font: { family: 'Courier New' } } } },
+        scales: {
+          x: { ticks: { color: '#888' }, grid: { color: '#1a2a1a' } },
+          y: { min: 0, max: 100, ticks: { color: '#888' }, grid: { color: '#1a2a1a' } },
+        },
+      },
+    });
+    log('ok', `Trend графік: ${sorted.length} сканувань для ${scan.url}`);
+  } catch (err) {
+    log('err', 'Не вдалося завантажити trend: ' + err.message);
+  }
+}
+
+// ── HTML REPORT ──
+function openReport() {
+  const scan = state.currentScan;
+  if (!scan) return;
+  window.open(`/api/report/${scan.id}`, '_blank');
+  log('ok', 'Відкрито HTML звіт (Ctrl+P для PDF)');
 }
 
 // ── EXPORT TXT ──
 function exportTxt() {
   const scan = state.currentScan;
   if (!scan) return;
-
   const lines = [
-    '═'.repeat(60),
-    'VULNSCAN — Security Audit Report',
-    '═'.repeat(60),
-    '',
-    `URL:    ${scan.url}`,
-    `Дата:   ${new Date(scan.date).toLocaleString('uk-UA')}`,
-    `Score:  ${scan.score}/100`,
-    `Grade:  ${scan.grade}`,
-    '',
-    'SUMMARY:',
-    scan.summary,
-    '',
+    '═'.repeat(60), 'VULNSCAN v2.0 — Security Audit Report', '═'.repeat(60), '',
+    `URL:    ${scan.url}`, `Дата:   ${new Date(scan.date).toLocaleString('uk-UA')}`,
+    `Score:  ${scan.score}/100`, `Grade:  ${scan.grade}`, '',
+    'SUMMARY:', scan.summary, '',
   ];
-
-  if (scan.critical_issues && scan.critical_issues.length > 0) {
+  if (scan.critical_issues?.length) {
     lines.push('CRITICAL ISSUES:');
     scan.critical_issues.forEach(i => lines.push('  ⚠ ' + i));
     lines.push('');
   }
-
-  if (scan.recommendations && scan.recommendations.length > 0) {
+  if (scan.recommendations?.length) {
     lines.push('RECOMMENDATIONS:');
     scan.recommendations.forEach(r => lines.push('  → ' + r));
     lines.push('');
   }
-
-  lines.push('CHECKS:');
-  lines.push('─'.repeat(60));
-
-  const cats = ['TRANSPORT', 'HEADERS', 'RECON', 'ACCESS', 'PHP'];
+  lines.push('CHECKS:'); lines.push('─'.repeat(60));
+  const cats = ['TRANSPORT','HEADERS','CORS','DNS','RECON','ACCESS','CLIENT','PHP'];
   cats.forEach(cat => {
-    const catChecks = scan.checks.filter(c => c.category === cat);
-    if (catChecks.length === 0) return;
-    const catTitle = { TRANSPORT:'TRANSPORT SECURITY', HEADERS:'HTTP SECURITY HEADERS',
-      RECON:'RECONNAISSANCE', ACCESS:'ACCESS CONTROL', PHP:'DEEP PHP SCAN' }[cat] || cat;
-    lines.push('');
-    lines.push('[' + catTitle + ']');
-    catChecks.forEach(c => {
-      const s = { pass: '✓', fail: '✗', warn: '!', info: 'i' }[c.status] || '?';
+    const cc = scan.checks.filter(c => c.category === cat);
+    if (!cc.length) return;
+    lines.push(''); lines.push('[' + cat + ']');
+    cc.forEach(c => {
+      const s = { pass:'✓', fail:'✗', warn:'!', info:'i' }[c.status] || '?';
       lines.push(`  ${s} ${c.name}`);
       lines.push(`    ${c.detail}`);
       if (c.recommendation) lines.push(`    → ${c.recommendation}`);
     });
   });
-
-  lines.push('');
-  lines.push('─'.repeat(60));
-  lines.push(`Згенеровано: ${new Date().toLocaleString('uk-UA')}`);
-  lines.push('VULNSCAN Security Audit Tool');
-
+  lines.push('', '─'.repeat(60), `Згенеровано: ${new Date().toLocaleString('uk-UA')}`, 'VULNSCAN Security Audit Tool v2.0');
   const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  const domain = new URL(scan.url).hostname.replace(/\W/g, '_');
-  a.download = `vulnscan_${domain}_${Date.now()}.txt`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  a.download = `vulnscan_${new URL(scan.url).hostname.replace(/\W/g,'_')}_${Date.now()}.txt`;
+  a.click(); URL.revokeObjectURL(a.href);
   log('ok', 'Звіт експортовано у TXT');
 }
 
@@ -1135,39 +818,125 @@ function renderHistory(scans) {
   const body = document.getElementById('historyBody');
   const empty = document.getElementById('historyEmpty');
   const table = document.getElementById('historyTable');
+  if (!scans?.length) { empty.style.display = 'block'; table.style.display = 'none'; return; }
+  empty.style.display = 'none'; table.style.display = 'table';
 
-  if (!scans || scans.length === 0) {
-    empty.style.display = 'block';
-    table.style.display = 'none';
-    return;
-  }
-
-  empty.style.display = 'none';
-  table.style.display = 'table';
-
-  body.innerHTML = scans.map((scan, i) => `
-    <tr>
-      <td style="color: var(--gray);">${i + 1}</td>
+  body.innerHTML = scans.map((scan, i) => {
+    const isSelected = state.compareSelected.includes(scan.id);
+    return `
+    <tr id="hist-row-${escHtml(scan.id)}" class="${isSelected ? 'selected' : ''}">
       <td>
-        <span class="history-url" onclick="openHistoryScan('${escHtml(scan.id)}')"
-          title="${escHtml(scan.url)}">${escHtml(scan.url)}</span>
+        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCompare('${escHtml(scan.id)}')" style="accent-color:var(--cyan);cursor:pointer;">
       </td>
-      <td style="color: var(--gray); white-space: nowrap; font-size: 12px;">
-        ${new Date(scan.date).toLocaleString('uk-UA')}
-      </td>
+      <td style="color:var(--gray);">${i + 1}</td>
       <td>
-        <span class="${scan.score >= 75 ? 'score-high' : scan.score >= 50 ? 'score-mid' : 'score-low'}">
-          ${scan.score}
-        </span>
+        <span class="history-url" onclick="openHistoryScan('${escHtml(scan.id)}')" title="${escHtml(scan.url)}">${escHtml(scan.url)}</span>
       </td>
+      <td style="color:var(--gray);white-space:nowrap;font-size:12px;">${new Date(scan.date).toLocaleString('uk-UA')}</td>
+      <td><span class="${scan.score >= 75 ? 'score-high' : scan.score >= 50 ? 'score-mid' : 'score-low'}">${scan.score}</span></td>
       <td><span class="grade-badge grade-${scan.grade}">${scan.grade}</span></td>
-      <td>
-        <button class="btn btn-danger btn-sm" onclick="deleteScan('${escHtml(scan.id)}')">
-          [ DEL ]
-        </button>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-danger btn-sm" onclick="deleteScan('${escHtml(scan.id)}')">[ DEL ]</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
+}
+
+function toggleCompare(id) {
+  const idx = state.compareSelected.indexOf(id);
+  if (idx >= 0) {
+    state.compareSelected.splice(idx, 1);
+  } else {
+    if (state.compareSelected.length >= 2) {
+      state.compareSelected.shift();
+    }
+    state.compareSelected.push(id);
+  }
+  document.getElementById('compareBtn').style.display = state.compareSelected.length === 2 ? 'inline-block' : 'none';
+  renderHistory(state.history);
+}
+
+function clearCompare() {
+  state.compareSelected = [];
+  document.getElementById('comparePanel').style.display = 'none';
+  document.getElementById('compareBtn').style.display = 'none';
+  renderHistory(state.history);
+}
+
+async function runCompare() {
+  if (state.compareSelected.length !== 2) return;
+  const [a, b] = state.compareSelected;
+  try {
+    const res = await fetch(`/api/scan/compare?a=${a}&b=${b}`);
+    if (!res.ok) throw new Error('Не вдалося завантажити');
+    const { a: scanA, b: scanB } = await res.json();
+    renderCompare(scanA, scanB);
+    document.getElementById('comparePanel').style.display = 'block';
+    log('ok', `Порівняння: ${scanA.url} vs ${scanB.url}`);
+  } catch (err) {
+    log('err', 'Помилка порівняння: ' + err.message);
+  }
+}
+
+function renderCompare(a, b) {
+  const scoreDiff = b.score - a.score;
+  const content = document.getElementById('compareContent');
+  content.innerHTML = `
+    <div class="compare-grid">
+      <div class="compare-col">
+        <h3>СКАН A — ${new Date(a.date).toLocaleDateString('uk-UA')}</h3>
+        <div style="margin-bottom:12px;">
+          <span style="font-size:24px;font-weight:bold;color:${gradeColor(a.grade)}">${a.score}</span>
+          <span style="font-size:12px;color:var(--gray);margin-left:8px;">Grade: ${a.grade}</span>
+        </div>
+        <div style="color:#aaa;font-size:11px;">${escHtml(a.url)}</div>
+      </div>
+      <div class="compare-col">
+        <h3>СКАН B — ${new Date(b.date).toLocaleDateString('uk-UA')}</h3>
+        <div style="margin-bottom:12px;">
+          <span style="font-size:24px;font-weight:bold;color:${gradeColor(b.grade)}">${b.score}</span>
+          <span style="font-size:12px;color:var(--gray);margin-left:8px;">Grade: ${b.grade}</span>
+          <span style="font-size:13px;margin-left:12px;" class="${scoreDiff > 0 ? 'diff-better' : scoreDiff < 0 ? 'diff-worse' : 'diff-same'}">
+            ${scoreDiff > 0 ? '↑ +' : scoreDiff < 0 ? '↓ ' : '= '}${scoreDiff}
+          </span>
+        </div>
+        <div style="color:#aaa;font-size:11px;">${escHtml(b.url)}</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div style="font-size:11px;color:var(--cyan);letter-spacing:2px;margin-bottom:8px;">// ВІДМІННОСТІ</div>
+      ${buildDiffRows(a.checks, b.checks)}
+    </div>`;
+}
+
+function buildDiffRows(checksA, checksB) {
+  const rows = [];
+  const mapA = Object.fromEntries(checksA.map(c => [c.id, c]));
+  const mapB = Object.fromEntries(checksB.map(c => [c.id, c]));
+  const allIds = [...new Set([...Object.keys(mapA), ...Object.keys(mapB)])];
+
+  for (const id of allIds) {
+    const ca = mapA[id], cb = mapB[id];
+    if (!ca || !cb) continue;
+    if (ca.status === cb.status) continue;
+    const improved = (cb.status === 'pass' && ca.status !== 'pass') || (cb.status === 'warn' && ca.status === 'fail');
+    const worsened = (ca.status === 'pass' && cb.status !== 'pass') || (ca.status === 'warn' && cb.status === 'fail');
+    rows.push(`
+      <div class="diff-row">
+        <span class="check-status status-${ca.status}" style="font-size:10px;padding:1px 5px;min-width:36px;">${ca.status.toUpperCase()}</span>
+        <span style="color:var(--gray);">→</span>
+        <span class="check-status status-${cb.status}" style="font-size:10px;padding:1px 5px;min-width:36px;">${cb.status.toUpperCase()}</span>
+        <span class="${improved ? 'diff-better' : worsened ? 'diff-worse' : 'diff-same'}" style="flex:1;font-size:12px;">
+          ${improved ? '↑' : worsened ? '↓' : '~'} ${escHtml((ca || cb).name)}
+        </span>
+      </div>`);
+  }
+  if (!rows.length) return '<div style="color:var(--gray);font-size:12px;">Жодних відмінностей у статусах перевірок</div>';
+  return rows.join('');
+}
+
+function gradeColor(g) {
+  return { A:'#00ff41', B:'#88ff00', C:'#ffcc00', D:'#ff8800', F:'#ff3333' }[g] || '#888';
 }
 
 async function openHistoryScan(id) {
@@ -1178,7 +947,7 @@ async function openHistoryScan(id) {
     state.currentScan = scan;
     renderResults(scan);
     showPage('results');
-    log('info', `Відкрито скан: ${scan.url}`);
+    log('info', `Відкрито скан: ${scan.url} (${new Date(scan.date).toLocaleDateString('uk-UA')})`);
   } catch (err) {
     log('err', 'Помилка завантаження: ' + err.message);
   }
@@ -1189,10 +958,86 @@ async function deleteScan(id) {
   try {
     const res = await fetch(`/api/scan/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Помилка видалення');
+    state.compareSelected = state.compareSelected.filter(s => s !== id);
     log('ok', 'Сканування видалено');
     await loadHistory();
   } catch (err) {
     log('err', 'Помилка видалення: ' + err.message);
+  }
+}
+
+// ── SCHEDULED SCANS ──
+async function loadSchedules() {
+  try {
+    const res = await fetch('/api/scheduled');
+    const schedules = await res.json();
+    renderSchedules(schedules);
+  } catch (err) {
+    log('err', 'Не вдалося завантажити розклади: ' + err.message);
+  }
+}
+
+function renderSchedules(schedules) {
+  const empty = document.getElementById('scheduleEmpty');
+  const table = document.getElementById('scheduleTable');
+  if (!schedules?.length) { empty.style.display = 'block'; table.style.display = 'none'; return; }
+  empty.style.display = 'none'; table.style.display = 'table';
+
+  const freqLabel = { daily: 'Щодня', weekly: 'Щотижня', monthly: 'Щомісяця' };
+  document.getElementById('scheduleBody').innerHTML = schedules.map(s => `
+    <tr>
+      <td><span class="enabled-dot ${s.enabled ? 'enabled-on' : 'enabled-off'}"></span></td>
+      <td style="color:var(--cyan);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.url)}</td>
+      <td>${freqLabel[s.schedule] || s.schedule}${s.deepPhp ? ' + PHP' : ''}</td>
+      <td style="color:var(--gray);font-size:11px;">${s.last_scan ? new Date(s.last_scan).toLocaleString('uk-UA') : 'Ніколи'}</td>
+      <td style="color:var(--yellow);font-size:11px;">${s.next_scan ? new Date(s.next_scan).toLocaleDateString('uk-UA') : '—'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-sm ${s.enabled ? 'btn-danger' : 'btn-cyan'}" onclick="toggleSchedule('${escHtml(s.id)}')">
+          ${s.enabled ? '[ СТОП ]' : '[ СТАРТ ]'}
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSchedule('${escHtml(s.id)}')">[ DEL ]</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function addSchedule() {
+  const url = document.getElementById('schedUrl').value.trim();
+  const schedule = document.getElementById('schedFreq').value;
+  const deepPhp = document.getElementById('schedDeepPhp').checked;
+  if (!url) { log('err', 'Вкажіть URL для розкладу'); return; }
+
+  try {
+    const res = await fetch('/api/scheduled', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: /^https?:\/\//i.test(url) ? url : 'https://' + url, schedule, deepPhp }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    document.getElementById('schedUrl').value = '';
+    log('ok', `Розклад додано: ${url} (${schedule})`);
+    await loadSchedules();
+  } catch (err) {
+    log('err', 'Помилка: ' + err.message);
+  }
+}
+
+async function toggleSchedule(id) {
+  try {
+    await fetch(`/api/scheduled/${id}/toggle`, { method: 'PATCH' });
+    await loadSchedules();
+  } catch (err) {
+    log('err', err.message);
+  }
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('Видалити розклад?')) return;
+  try {
+    await fetch(`/api/scheduled/${id}`, { method: 'DELETE' });
+    log('ok', 'Розклад видалено');
+    await loadSchedules();
+  } catch (err) {
+    log('err', err.message);
   }
 }
 </script>
