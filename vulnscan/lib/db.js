@@ -2,8 +2,10 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const dataDir = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+// On Vercel only /tmp is writable; locally use data/ dir
+const isVercel = process.env.VERCEL === '1';
+const dataDir = isVercel ? '/tmp' : path.join(__dirname, '..', 'data');
+if (!isVercel && !fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new Database(path.join(dataDir, 'vulnscan.db'));
 db.pragma('journal_mode = WAL');

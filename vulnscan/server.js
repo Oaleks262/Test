@@ -87,7 +87,7 @@ function startScheduledScans() {
 }
 
 app.listen(PORT, () => {
-  startScheduledScans();
+  if (!process.env.VERCEL) startScheduledScans();
   console.log(`
 ╔══════════════════════════════════════════╗
 ║         VULNSCAN SERVER v2.0             ║
