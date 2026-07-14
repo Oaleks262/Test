@@ -16,7 +16,13 @@ const auditJS = require('./modules/js-audit');
 const probeSubdomains = require('./modules/subdomains');
 const checkOpenRedirect = require('./modules/open-redirect');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openai = null;
+function getOpenAI() {
+  if (!openai && process.env.OPENAI_API_KEY) {
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openai;
+}
 const FETCH_TIMEOUT = 5000;
 
 // ── Fetch з таймаутом ──
@@ -391,8 +397,11 @@ async function analyzeWithAI(url, checks) {
 {"score":<0-100>,"grade":"<A|B|C|D|F>","summary":"<2-3 речення>","critical_issues":["..."],"recommendations":["...","...","..."]}
 Шкала: A=90-100, B=75-89, C=60-74, D=40-59, F=0-39`;
 
+  const client = getOpenAI();
+  if (!client) throw new Error('AI недоступний: OPENAI_API_KEY не налаштовано');
+
   try {
-    const r = await openai.chat.completions.create({
+    const r = await client.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
